@@ -84,7 +84,7 @@ test('readVarint signed', () => {
 test('readVarint64 (compatibility)', () => {
     const bytes = [0xc8, 0xe8, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01];
     const buf = new Pbf(Buffer.from(bytes));
-    assert.equal(buf.readVarint64(), BigInt(-3000));
+    assert.equal(buf.readVarint64(true), BigInt(-3000));
 });
 
 test('readVarint & writeVarint handle really big numbers', () => {
@@ -177,7 +177,7 @@ test('readPacked and writePacked', () => {
         buf.readFields((tag) => {
             const arr = [];
             buf[`readPacked${type}`](arr);
-            const numArr = arr.map((n) => Number(n));
+            const numArr = arr.map(n => Number(n));
             if (tag === 1) assert.deepEqual(numArr, testNumbers2, `packed ${type}`);
             else assert.fail(`wrong tag encountered: ${tag}`);
         });
@@ -196,7 +196,7 @@ test('readPacked and writePacked', () => {
             buf[`readPacked${type}`](arr);
         });
 
-        const numArr = arr.map((n) => Number(n));
+        const numArr = arr.map(n => Number(n));
         assert.deepEqual(numArr, testNumbers2, `packed ${type}`);
     }
 

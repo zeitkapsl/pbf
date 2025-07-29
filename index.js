@@ -303,6 +303,7 @@ export default class Pbf {
             return;
         }
         val = Number(val);
+        val = +val || 0;
 
         this.realloc(4);
 
