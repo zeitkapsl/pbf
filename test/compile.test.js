@@ -252,7 +252,7 @@ test('handles jstype=JS_STRING', () => {
 
     writeTypeString({
         int: '-5',
-        long: '10000',
+        long: '9223372036854775807',
         boolVal: true,
         float: '12',
     }, pbf);
@@ -261,7 +261,7 @@ test('handles jstype=JS_STRING', () => {
     let data = readTypeString(new Pbf(buf));
 
     assert.equal(data.int, '-5');
-    assert.equal(data.long, '10000');
+    assert.equal(data.long, '9223372036854775807');
     assert.equal(data.boolVal, true);
     assert.equal(data.float, '12');
     assert.equal(data.default_implicit, '0');
@@ -269,7 +269,7 @@ test('handles jstype=JS_STRING', () => {
 
     data = readTypeNotString(new Pbf(buf));
     assert.equal(data.int, -5);
-    assert.equal(data.long, 10000);
+    assert.equal(data.long, 9223372036854775807n);
     assert.equal(data.boolVal, true);
     assert.equal(data.float, 12);
 });
@@ -281,14 +281,14 @@ test('handles negative varint', () => {
 
     writeEnvelope({
         int: -5,
-        long: -10
+        long: -10n
     }, pbf);
 
     const buf = pbf.finish();
     const data = readEnvelope(new Pbf(buf));
 
     assert.equal(data.int, -5);
-    assert.equal(data.long, -10);
+    assert.equal(data.long, -10n);
 });
 
 test('handles unsigned varint', () => {
@@ -298,12 +298,12 @@ test('handles unsigned varint', () => {
 
     writeEnvelope({
         uint: Math.pow(2, 31),
-        ulong: Math.pow(2, 63)
+        ulong: 9223372036854775808n
     }, pbf);
 
     const buf = pbf.finish();
     const data = readEnvelope(new Pbf(buf));
 
     assert.equal(data.uint, Math.pow(2, 31));
-    assert.equal(data.ulong, Math.pow(2, 63));
+    assert.equal(data.ulong, 9223372036854775808n);
 });

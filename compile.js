@@ -163,10 +163,10 @@ function compileFieldRead(ctx, field) {
     case 'double':   return `${prefix}Double${suffix}`;
     case 'bool':     return `${prefix}Boolean${suffix}`;
     case 'enum':
-    case 'uint32':
-    case 'uint64':
-    case 'int32':
-    case 'int64':    return `${prefix}Varint${suffix}`;
+    case 'uint32':   return `${prefix}Varint${suffix}`;
+    case 'uint64':   return `${prefix}Varint64${suffix}`;
+    case 'int32':    return `${prefix}Varint${suffix}`;
+    case 'int64':    return `${prefix}Varint64${suffix}`;
     case 'sint32':
     case 'sint64':   return `${prefix}SVarint${suffix}`;
     case 'fixed32':  return `${prefix}Fixed32${suffix}`;
@@ -185,6 +185,8 @@ function compileFieldWrite(ctx, field, name) {
     if (fieldShouldUseStringAsNumber(field)) {
         if (field.type === 'float' || field.type === 'double') {
             name = `parseFloat(${name})`;
+        } else if (field.type === 'long' || field.type === 'int64') {
+            name = `BigInt(${name})`;
         } else {
             name = `parseInt(${name}, 10)`;
         }

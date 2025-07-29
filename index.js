@@ -34,7 +34,7 @@ export default class Pbf {
      */
     readFields(readField, result, end = this.length) {
         while (this.pos < end) {
-            const val = this.readVarint(),
+            const val = Number(this.readVarint()),
                 tag = val >> 3,
                 startPos = this.pos;
 
@@ -52,7 +52,7 @@ export default class Pbf {
      * @param {T} result
      */
     readMessage(readField, result) {
-        return this.readFields(readField, result, this.readVarint() + this.pos);
+        return this.readFields(readField, result, Number(this.readVarint()) + this.pos);
     }
 
     readFixed32() {
@@ -95,8 +95,9 @@ export default class Pbf {
 
     /**
      * @param {boolean} [isSigned]
+     * @param {boolean} [is64]
      */
-    readVarint(isSigned) {
+    readVarint(isSigned, is64) {
         const buf = this.buf;
         let val, b;
 
@@ -106,16 +107,20 @@ export default class Pbf {
         b = buf[this.pos++]; val |= (b & 0x7f) << 21; if (b < 0x80) return val;
         b = buf[this.pos];   val |= (b & 0x0f) << 28;
 
-        return readVarintRemainder(val, isSigned, this);
+        return readVarintRemainder(val, isSigned, this, is64);
     }
 
-    readVarint64() { // for compatibility with v2.0.1
-        return this.readVarint(true);
+    /**
+     * @param {boolean} [signed]
+     * @returns {number|bigint}
+     */
+    readVarint64(signed) { // for compatibility with v2.0.1
+        return this.readVarint(signed, true);
     }
 
     readSVarint() {
-        const num = this.readVarint();
-        return num % 2 === 1 ? (num + 1) / -2 : num / 2; // zigzag encoding
+        const num = BigInt(this.readVarint());
+        return num % BigInt(2) === BigInt(1) ? (num + BigInt(1)) / BigInt(-2) : num / BigInt(2); // zigzag encoding
     }
 
     readBoolean() {
@@ -123,7 +128,7 @@ export default class Pbf {
     }
 
     readString() {
-        const end = this.readVarint() + this.pos;
+        const end = Number(this.readVarint()) + this.pos;
         const pos = this.pos;
         this.pos = end;
 
@@ -136,7 +141,7 @@ export default class Pbf {
     }
 
     readBytes() {
-        const end = this.readVarint() + this.pos,
+        const end = Number(this.readVarint()) + this.pos,
             buffer = this.buf.subarray(this.pos, end);
         this.pos = end;
         return buffer;
@@ -145,18 +150,33 @@ export default class Pbf {
     // verbose for performance reasons; doesn't affect gzipped size
 
     /**
+     * @param {bigint[]} [arr]
+     * @param {boolean} [isSigned]
+     */
+    readPackedVarint64(arr = [], isSigned) {
+        const end = this.readPackedEnd();
+        while (this.pos < end) arr.push(BigInt(this.readVarint64(isSigned)));
+        return arr;
+    }
+    /** @param {bigint[]} [arr] */
+    readPackedSVarint64(arr = []) {
+        const end = this.readPackedEnd();
+        while (this.pos < end) arr.push(BigInt(this.readSVarint()));
+        return arr;
+    }
+    /**
      * @param {number[]} [arr]
      * @param {boolean} [isSigned]
      */
     readPackedVarint(arr = [], isSigned) {
         const end = this.readPackedEnd();
-        while (this.pos < end) arr.push(this.readVarint(isSigned));
+        while (this.pos < end) arr.push(Number(this.readVarint(isSigned)));
         return arr;
     }
     /** @param {number[]} [arr] */
     readPackedSVarint(arr = []) {
         const end = this.readPackedEnd();
-        while (this.pos < end) arr.push(this.readSVarint());
+        while (this.pos < end) arr.push(Number(this.readSVarint()));
         return arr;
     }
     /** @param {boolean[]} [arr] */
@@ -202,14 +222,14 @@ export default class Pbf {
         return arr;
     }
     readPackedEnd() {
-        return this.type === PBF_BYTES ? this.readVarint() + this.pos : this.pos + 1;
+        return this.type === PBF_BYTES ? Number(this.readVarint()) + this.pos : this.pos + 1;
     }
 
     /** @param {number} val */
     skip(val) {
         const type = val & 0x7;
         if (type === PBF_VARINT) while (this.buf[this.pos++] > 0x7f) {}
-        else if (type === PBF_BYTES) this.pos = this.readVarint() + this.pos;
+        else if (type === PBF_BYTES) this.pos = Number(this.readVarint()) + this.pos;
         else if (type === PBF_FIXED32) this.pos += 4;
         else if (type === PBF_FIXED64) this.pos += 8;
         else throw new Error(`Unimplemented type: ${type}`);
@@ -276,14 +296,13 @@ export default class Pbf {
         this.pos += 8;
     }
 
-    /** @param {number} val */
+    /** @param {number|bigint} val */
     writeVarint(val) {
-        val = +val || 0;
-
         if (val > 0xfffffff || val < 0) {
-            writeBigVarint(val, this);
+            writeBigVarint(BigInt(val), this);
             return;
         }
+        val = Number(val);
 
         this.realloc(4);
 
@@ -483,7 +502,7 @@ export default class Pbf {
     }
     /**
      * @param {number} tag
-     * @param {number} val
+     * @param {number|bigint} val
      */
     writeVarintField(tag, val) {
         this.writeTag(tag, PBF_VARINT);
@@ -534,17 +553,18 @@ export default class Pbf {
  * @param {number} l
  * @param {boolean | undefined} s
  * @param {Pbf} p
+ * @param {boolean} [is64]
  */
-function readVarintRemainder(l, s, p) {
+function readVarintRemainder(l, s, p, is64) {
     const buf = p.buf;
     let h, b;
 
-    b = buf[p.pos++]; h  = (b & 0x70) >> 4;  if (b < 0x80) return toNum(l, h, s);
-    b = buf[p.pos++]; h |= (b & 0x7f) << 3;  if (b < 0x80) return toNum(l, h, s);
-    b = buf[p.pos++]; h |= (b & 0x7f) << 10; if (b < 0x80) return toNum(l, h, s);
-    b = buf[p.pos++]; h |= (b & 0x7f) << 17; if (b < 0x80) return toNum(l, h, s);
-    b = buf[p.pos++]; h |= (b & 0x7f) << 24; if (b < 0x80) return toNum(l, h, s);
-    b = buf[p.pos++]; h |= (b & 0x01) << 31; if (b < 0x80) return toNum(l, h, s);
+    b = buf[p.pos++]; h  = (b & 0x70) >> 4;  if (b < 0x80) return toNum(l, h, s, is64);
+    b = buf[p.pos++]; h |= (b & 0x7f) << 3;  if (b < 0x80) return toNum(l, h, s, is64);
+    b = buf[p.pos++]; h |= (b & 0x7f) << 10; if (b < 0x80) return toNum(l, h, s, is64);
+    b = buf[p.pos++]; h |= (b & 0x7f) << 17; if (b < 0x80) return toNum(l, h, s, is64);
+    b = buf[p.pos++]; h |= (b & 0x7f) << 24; if (b < 0x80) return toNum(l, h, s, is64);
+    b = buf[p.pos++]; h |= (b & 0x01) << 31; if (b < 0x80) return toNum(l, h, s, is64);
 
     throw new Error('Expected varint not more than 10 bytes');
 }
@@ -553,24 +573,35 @@ function readVarintRemainder(l, s, p) {
  * @param {number} low
  * @param {number} high
  * @param {boolean} [isSigned]
+ * @param {boolean} [is64]
  */
-function toNum(low, high, isSigned) {
+function toNum(low, high, isSigned, is64) {
+    if (is64) {
+        let int;
+        if (isSigned) {
+            int = BigInt(high) * BigInt(0x100000000) + BigInt(low >>> 0);
+            return int;
+        }
+
+        int = (BigInt(high >>> 0) * BigInt(0x100000000)) + BigInt(low >>> 0);
+        return int;
+    }
     return isSigned ? high * 0x100000000 + (low >>> 0) : ((high >>> 0) * 0x100000000) + (low >>> 0);
 }
 
 /**
- * @param {number} val
+ * @param {bigint} val
  * @param {Pbf} pbf
  */
 function writeBigVarint(val, pbf) {
     let low, high;
 
-    if (val >= 0) {
-        low  = (val % 0x100000000) | 0;
-        high = (val / 0x100000000) | 0;
+    if (val >= BigInt(0)) {
+        low  = Number(val % BigInt(0x100000000)) | 0;
+        high = Number(val / BigInt(0x100000000)) | 0;
     } else {
-        low  = ~(-val % 0x100000000);
-        high = ~(-val / 0x100000000);
+        low  = ~Number(-val % BigInt(0x100000000));
+        high = ~Number(-val / BigInt(0x100000000));
 
         if (low ^ 0xffffffff) {
             low = (low + 1) | 0;
@@ -580,7 +611,7 @@ function writeBigVarint(val, pbf) {
         }
     }
 
-    if (val >= 0x10000000000000000 || val < -0x10000000000000000) {
+    if (val >= BigInt(0x10000000000000000n) || val < BigInt(-0x10000000000000000)) {
         throw new Error('Given varint doesn\'t fit into 10 bytes');
     }
 

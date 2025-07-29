@@ -23,8 +23,8 @@ function readTileValueField(tag, obj, pbf) {
     if (tag === 1) obj.string_value = pbf.readString();
     else if (tag === 2) obj.float_value = pbf.readFloat();
     else if (tag === 3) obj.double_value = pbf.readDouble();
-    else if (tag === 4) obj.int_value = pbf.readVarint(true);
-    else if (tag === 5) obj.uint_value = pbf.readVarint();
+    else if (tag === 4) obj.int_value = pbf.readVarint64(true);
+    else if (tag === 5) obj.uint_value = pbf.readVarint64();
     else if (tag === 6) obj.sint_value = pbf.readSVarint();
     else if (tag === 7) obj.bool_value = pbf.readBoolean();
 }
@@ -42,7 +42,7 @@ export function readTileFeature(pbf, end) {
     return pbf.readFields(readTileFeatureField, {id: 0, tags: [], type: 0, geometry: []}, end);
 }
 function readTileFeatureField(tag, obj, pbf) {
-    if (tag === 1) obj.id = pbf.readVarint();
+    if (tag === 1) obj.id = pbf.readVarint64();
     else if (tag === 2) pbf.readPackedVarint(obj.tags);
     else if (tag === 3) obj.type = pbf.readVarint();
     else if (tag === 4) pbf.readPackedVarint(obj.geometry);

@@ -5,8 +5,8 @@ export function readEnvelope(pbf, end) {
 function readEnvelopeField(tag, obj, pbf) {
     if (tag === 1) obj.int = pbf.readVarint(true);
     else if (tag === 2) obj.uint = pbf.readVarint();
-    else if (tag === 3) obj.long = pbf.readVarint(true);
-    else if (tag === 4) obj.ulong = pbf.readVarint();
+    else if (tag === 3) obj.long = pbf.readVarint64(true);
+    else if (tag === 4) obj.ulong = pbf.readVarint64();
 }
 export function writeEnvelope(obj, pbf) {
     if (obj.int) pbf.writeVarintField(1, obj.int);

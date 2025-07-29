@@ -15,9 +15,13 @@ var data = fs.readFileSync(new URL('../test/fixtures/12665.vector.pbf', import.m
     ProtobufjsTile = protobufjs.loadSync(fileURLToPath(vtProtoUrl)).lookup('vector_tile.Tile');
 
 var pbfTile = readTile(new Pbf(data)),
-    tileJSON = JSON.stringify(pbfTile),
+    tileJSON = JSON.stringify(pbfTile, bigIntReplacer),
     protocolBuffersTile = ProtocolBuffersTile.decode(data),
     protobufjsTile = ProtobufjsTile.decode(data);
+
+function bigIntReplacer(_key, value) {
+    return typeof value === 'bigint' ? value.toString() : value;
+}
 
 suite
     .add('decode vector tile with pbf', function() {
